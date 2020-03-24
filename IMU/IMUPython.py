@@ -2,9 +2,9 @@ from ctypes import *
 import sys
 import time
 import math
-rs = CDLL('./rs232.so')
-spatial = CDLL('./spatial_packets.so')
-packets = CDLL('./an_packet_protocol.so')
+rs = CDLL('./IMU/rs232.so')
+spatial = CDLL('./IMU/spatial_packets.so')
+packets = CDLL('./IMU/an_packet_protocol.so')
 
 ######### defines & macros #################
 AN_PACKET_HEADER_SIZE = 5
