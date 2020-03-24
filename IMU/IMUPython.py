@@ -1,4 +1,5 @@
 from ctypes import *
+from Car import *
 import sys
 import time
 import math
@@ -96,7 +97,7 @@ def set_sensor_ranges():
 
 
 ########### main functions ################
-def ImuLoop():
+def ImuLoop(q):
     an_decoder = an_decoder_t()
     an_packet = an_packet_t()
     system_state_packet = system_state_packet_t()
@@ -150,6 +151,8 @@ def ImuLoop():
             if id == 20 :
                 res = spatial.decode_system_state_packet(byref(system_state_packet),an_packet)
                 if(res == 0):
-                    print("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
+                    # print("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
+                    # q.put("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
+                    q.put(CarStatus(heading = system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
     rs.CloseComport()
 
