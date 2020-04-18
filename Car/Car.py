@@ -1,5 +1,37 @@
+from operator import add , sub
+
+class Cone:
+# Cone type to create a list of cones from
+    def __init__(self, distance = None, heading = None, coneType = None):
+        self.destance = distance
+        self.heading = heading
+        self.coneType = coneType
+
 class CarStatus:
-    def __init__(self, heading = 0 , x = 0 ,y = 0,z = 0):
+    # this class goes in the que a better name for it would be CarStatueUpdate
+    def __init__(self, heading = 400 , x = 0 ,y = 0,z = 0, uptadeType = None, coneList = None):
         self.heading = heading 
         self.location = [x,y,z]
+        self.type = uptadeType
+        self.coneList = coneList
+
+
+class Car:
+    #Any data that is currently corrent for the car for example the list of cones after the SLAM
+    def __init__(self, heading = 400 , x = 0 ,y = 0,z = 0):
+        self.heading = heading 
+        self.zeroLocaion = [x,y,z]
+        self.location = [0,0,0]
+
+    def updateStatus(self, carStatus):
+        if carStatus.location[0] != 0 and carStatus.location[1] != 0 and carStatus.location[2] != 0:
+            self.location = list(map(sub,carStatus.location, self.zeroLocaion))
+
+        if carStatus.heading != 400:
+            self.heading = carStatus.heading
+
+    def setZero(self,location):
+        self.zeroLocaion = location
+        self.location = [0,0,0]
+        
 

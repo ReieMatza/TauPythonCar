@@ -335,7 +335,7 @@ int decode_ecef_position_packet(ecef_position_packet_t *ecef_position_packet, an
 
 int decode_utm_position_packet(utm_position_packet_t *utm_position_packet, an_packet_t *an_packet)
 {
-	if(an_packet->id == packet_id_utm_position && an_packet->length == 25)
+	if(an_packet->id == packet_id_utm_position && an_packet->length == 26)
 	{
 		memcpy(&utm_position_packet->position, &an_packet->data[0], 3*sizeof(double));
 		utm_position_packet->zone = an_packet->data[24];

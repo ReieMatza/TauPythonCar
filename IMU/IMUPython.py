@@ -15,6 +15,8 @@ RADIANS_TO_DEGREES = 180.0/math.pi
 accelerometer_range_4g = 1
 gyroscope_range_500dps = 1
 magnetometer_range_2g = 0
+MAXIMUM_PACKET_PERIODS = 50
+packet_id_utm_position = 34
 
 packet_id_system_state = 20
 ########## structs ##########################
@@ -36,6 +38,18 @@ class sensor_ranges_packet_t(Structure):
                 ("gyroscopes_range", c_uint8),
                 ("magnetometers_range",c_uint8)]
 
+class utm_position_packet_t(Structure):
+	_fields_ = [("position",c_double*3),
+                ("zone",c_char)]
+
+class packet_period_t(Structure):
+    _fields_ = [('packet_id',c_uint8),
+                ('period',c_uint32)]
+
+class packet_periods_packet_t(Structure):
+    _fields_ = [('permanent',c_uint8),
+                ('clear_existing_packets',c_uint8),
+                ('packet_periods', packet_period_t*MAXIMUM_PACKET_PERIODS)]
 
 # class b(Structure):
 # 			unsigned int orientation_filter_initialised :1; 1
@@ -71,6 +85,10 @@ class system_state_packet_t(Structure):
 
 packets.an_packet_decode.restype = POINTER(an_packet_t)
 spatial.encode_sensor_ranges_packet.restype = POINTER(an_packet_t)
+spatial.encode_packet_periods_packet.restype = POINTER(an_packet_t)
+# spatial.decode_utm_position_packet.restype = c_int
+
+
 ############# costants %%%%%%%%%%%%%%%%%%%%%%%%
 comPort = "COM3"
 # comPort = "/dev/ttyUSB0" #nvidia's comport
@@ -95,12 +113,24 @@ def set_sensor_ranges():
 
 	# an_packet_free(&an_packet)
 
+def set_utm_packet_rate():
+    utm_rate_packet = packet_periods_packet_t()
+    utm_rate_packet.clear_existing_packets = 0
+    utm_rate_packet.packet_periods[0].packet_id = packet_id_utm_position
+    utm_rate_packet.packet_periods[0].period = 1
+
+    an_packet = spatial.encode_packet_periods_packet(byref(utm_rate_packet))
+    an_packet_transmit(an_packet)
+
+    # an_packet_free(&an_packet)
+
 
 ########### main functions ################
 def ImuLoop(q):
     an_decoder = an_decoder_t()
     an_packet = an_packet_t()
     system_state_packet = system_state_packet_t()
+    utm_position_packet = utm_position_packet_t()
 
     if(rs.OpenComport(create_string_buffer(comPort.encode('utf-8')),115200)==0):
         print('opend comport sucssesfuly')
@@ -139,7 +169,7 @@ def ImuLoop(q):
         
 
 
-
+    # set_utm_packet_rate()
     while 1:
         pointer = packets.an_decoder_pointer(byref(an_decoder))
         size = packets.an_decoder_size(byref(an_decoder))
@@ -154,5 +184,9 @@ def ImuLoop(q):
                     # print("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
                     # q.put("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
                     q.put(CarStatus(heading = system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
+            elif id == packet_id_utm_position:
+                res = spatial.decode_utm_position_packet(byref(utm_position_packet),an_packet)
+                if(res == 0):
+                    q.put(CarStatus(x = utm_position_packet.position[0],y = utm_position_packet.position[1],z = utm_position_packet.position[2] ))
     rs.CloseComport()
 
