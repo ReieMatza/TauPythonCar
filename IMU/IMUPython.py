@@ -1,5 +1,6 @@
 from ctypes import *
 from Car import *
+import csv
 import sys
 import time
 import math
@@ -17,8 +18,8 @@ gyroscope_range_500dps = 1
 magnetometer_range_2g = 0
 MAXIMUM_PACKET_PERIODS = 50
 packet_id_utm_position = 34
-
 packet_id_system_state = 20
+
 ########## structs ##########################
 class an_packet_t(Structure):
     _fields_ = [("id", c_uint8),
@@ -126,7 +127,7 @@ def set_utm_packet_rate():
 
 
 ########### main functions ################
-def ImuLoop(q):
+def ImuLoop(q, plottingFileName,fieldnames):
     an_decoder = an_decoder_t()
     an_packet = an_packet_t()
     system_state_packet = system_state_packet_t()
@@ -163,13 +164,10 @@ def ImuLoop(q):
     #                     #     No_fix = False
     #                     #     print("GNSS FIX STATUS: %d\n", system_state_packet.filter_status.b.gnss_fix_type)
     #                     # an_packet_free(&an_packet)        
-    #             an_packet = packets.an_packet_decode(byref(an_decoder))
-            
-        
-        
-
-
-    # set_utm_packet_rate()
+    #             an_packet = packets.an_pac
+    
+    null_ptr = POINTER(c_int)()
+        # set_utm_packet_rate()
     while 1:
         pointer = packets.an_decoder_pointer(byref(an_decoder))
         size = packets.an_decoder_size(byref(an_decoder))
@@ -177,16 +175,26 @@ def ImuLoop(q):
         if bytes_received>0:
             packets.an_decoder_increment(byref(an_decoder),bytes_received)
             an_packet = packets.an_packet_decode(byref(an_decoder))
-            id = an_packet.contents.id
-            if id == 20 :
-                res = spatial.decode_system_state_packet(byref(system_state_packet),an_packet)
-                if(res == 0):
-                    # print("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
-                    # q.put("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
-                    q.put(CarStatus(heading = system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
-            elif id == packet_id_utm_position:
-                res = spatial.decode_utm_position_packet(byref(utm_position_packet),an_packet)
-                if(res == 0):
-                    q.put(CarStatus(x = utm_position_packet.position[0],y = utm_position_packet.position[1],z = utm_position_packet.position[2] ))
+
+            if an_packet:
+                id = an_packet.contents.id
+                if id == 20 :
+                    res = spatial.decode_system_state_packet(byref(system_state_packet),an_packet)
+                    if(res == 0):
+                        # print("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
+                        # q.put("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
+                        q.put(CarStatus(heading = system_state_packet.orientation[2] * RADIANS_TO_DEGREES ,uptadeType = 2))
+                elif id == packet_id_utm_position:
+                    
+                    res = spatial.decode_utm_position_packet(byref(utm_position_packet),an_packet)
+                    if(res == 0):
+
+                        x = utm_position_packet.position[0]
+                        y = utm_position_packet.position[1]
+                        z = utm_position_packet.position[2] 
+                        q.put(CarStatus(x,y,z,uptadeType = 1))
+
+
+
     rs.CloseComport()
 

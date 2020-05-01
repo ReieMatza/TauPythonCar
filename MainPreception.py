@@ -1,4 +1,5 @@
 import sys
+import csv
 import time
 import os
 import queue
@@ -14,41 +15,35 @@ sys.path.append(CARpath)
 
 from Car import *
 from IMUPython import *
+import SLAM
 
 def main():
+    saveDataFile = 'data.csv'
+    fieldnames = ["x_value", "y_value"]
 
-    imuQ = queue.Queue()
-    imuThread = threading.Thread(target = ImuLoop, args =(imuQ,), daemon=True)
+
+    with open(saveDataFile, 'w') as csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        csv_writer.writeheader()
+
+    carStatueQueue = queue.Queue()
+    imuThread = threading.Thread(target = ImuLoop, args =(carStatueQueue,'data.csv',fieldnames,), daemon=True)
     imuThread.start()
     car = Car()
-    firstPacket = True
+
+    SLAM.RunSLAM(car,carStatueQueue,saveDataFile,fieldnames)
 
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    fig.show()
-    ax.relim() 
-    ax.autoscale_view(True,True,True)
-    fig.canvas.draw()
-    plt.show(block=False)
-    pltData = []
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # fig.show()
+    # ax.relim() 
+    # ax.autoscale_view(True,True,True)
+    # fig.canvas.draw()
+    # plt.show(block=False)
+    # pltData = []
 
-    while 1:
-        stat = imuQ.get() 
-        if stat.heading == 400:
-            if firstPacket:
-                car.setZero(stat.location)
-                firstPacket=False
-        
-        car.updateStatus(stat)
-            
-        r = (car.location[0]**2 + car.location[1]**2+car.location[2]**2)**0.5
-        # print("x: {0} y: {1} z: {2} r: {3} \n" .format( car.location[0] ,car.location[1], car.location[2],r))
-        print("r: {0} \n" .format(r))
-        # pltData.append([car.location[0],car.location[1]])
-        # ax.plot(pltData,color ="b")
-        # fig.canvas.draw()
-        # time.sleep(0.5)
+    
 
             
         

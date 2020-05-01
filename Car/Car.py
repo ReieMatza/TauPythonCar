@@ -1,4 +1,5 @@
 from operator import add , sub
+import csv
 
 class Cone:
 # Cone type to create a list of cones from
@@ -9,6 +10,7 @@ class Cone:
 
 class CarStatus:
     # this class goes in the que a better name for it would be CarStatueUpdate
+    # uptadeTypes 1: location update ,2: heading update ,3: cone list update
     def __init__(self, heading = 400 , x = 0 ,y = 0,z = 0, uptadeType = None, coneList = None):
         self.heading = heading 
         self.location = [x,y,z]
@@ -23,11 +25,14 @@ class Car:
         self.zeroLocaion = [x,y,z]
         self.location = [0,0,0]
 
-    def updateStatus(self, carStatus):
-        if carStatus.location[0] != 0 and carStatus.location[1] != 0 and carStatus.location[2] != 0:
+    def updateStatus(self, carStatus,plotFile,fieldnames):
+        if carStatus.type == 1:
             self.location = list(map(sub,carStatus.location, self.zeroLocaion))
-
-        if carStatus.heading != 400:
+            with open(plotFile, 'a') as csv_file:
+                csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                info = {"x_value": self.location[0],"y_value": self.location[1]}
+                csv_writer.writerow(info)
+        elif carStatus == 2:
             self.heading = carStatus.heading
 
     def setZero(self,location):
