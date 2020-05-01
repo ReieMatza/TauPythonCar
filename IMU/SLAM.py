@@ -12,10 +12,13 @@ import threading
 
 def plotAnimate(i , carStatueQueue ,plotFile ,fieldnames,car):
     data = pd.read_csv('data.csv')
+    carStatueQueue.queue.clear()
     x = data['x_value']
     y = data['y_value']
     plt.cla()
     plt.plot(x, y, label='Location')
+    plt.xlim((-2,2))
+    plt.ylim((-2,2))
     plt.legend(loc='upper left')
     plt.tight_layout()
 
