@@ -17,9 +17,14 @@ from Car import *
 from IMUPython import *
 import SLAM
 
+class OppMode:
+    def __init__(self, type = "online", path = ""):
+        self.type = type
+        self.path = path
+
 def main():
     saveDataFile = 'data.csv'
-    fieldnames = ["x_value", "y_value"]
+    fieldnames = ["Unix Time","Microseconds", "Northing (m)", "Easting (m)" ,"Heading (degrees)"]
 
 
     with open(saveDataFile, 'w') as csv_file:
@@ -30,8 +35,9 @@ def main():
     imuThread = threading.Thread(target = ImuLoop, args =(carStatueQueue,'data.csv',fieldnames,), daemon=True)
     imuThread.start()
     car = Car()
+    oppMode = OppMode(type = 'offline',path = 'C:\\FinalProject\\TauPythonCar\\UTMPosition.csv')
 
-    SLAM.RunSLAM(car,carStatueQueue,saveDataFile,fieldnames)
+    SLAM.RunSLAM(car,carStatueQueue,saveDataFile,fieldnames, oppMode)
 
 
     # fig = plt.figure()

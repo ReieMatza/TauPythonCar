@@ -13,8 +13,8 @@ import threading
 def plotAnimate(i , carStatueQueue ,plotFile ,fieldnames,car):
     data = pd.read_csv('data.csv')
     carStatueQueue.queue.clear()
-    x = data['x_value']
-    y = data['y_value']
+    x = data['Easting (m)']
+    y = data['Northing (m)']
     plt.cla()
     plt.plot(x, y, label='Location')
     plt.xlim((-2,2))
@@ -28,22 +28,40 @@ def plotter(carStatueQueue ,plotFile ,fieldnames,car):
     plt.tight_layout()
     plt.show()
 
-def RunSLAM(car,carStatueQueue,plotFile,fieldnames):
-    firstPacket = True
+def RunSLAM(car,carStatueQueue,plotFile,fieldnames, oppMode):
+    firstPacketLocation = True
+    firstPacketHeading = True
     plotThread = threading.Thread(target = plotter, args =(carStatueQueue ,plotFile ,fieldnames,car,), daemon=True)
     plotThread.start()
-    while 1:
-            stat = carStatueQueue.get() 
-            # carStatueQueue.queue.clear()
-            if stat.type == 1:
-                if firstPacket:
-                    car.setZero(stat.location)
-                    firstPacket=False
-            
-            car.updateStatus(stat,plotFile,fieldnames)
+    if oppMode.type == "online":
+        while 1:
+                stat = carStatueQueue.get() 
+                if stat.type == 1:
+                    if firstPacketLocation:
+                        car.setZero(stat.location)
+                        firstPacketLocation=False
+                # if stat.type == 2:
+                #     if firstPacketLocation:
+                #         car.setZero(stat.location)
+                #         firstPacketLocation=False
                 
-            r = (car.location[0]**2 + car.location[1]**2+car.location[2]**2)**0.5
-            # print("x: {0} y: {1} z: {2} r: {3} \n" .format( car.location[0] ,car.location[1], car.location[2],r))
-            print("r: {0} \n" .format(r))
+                car.updateStatus(stat,plotFile,fieldnames)
+
+    elif oppMode.type == "offline":
+        data = pd.read_csv(oppMode.path)
+        heading = data['Heading (degrees)']
+        x = data['Easting (m)']
+        y = data['Northing (m)']
+        UNIXseconds = data['Unix Time']
+        microSeconds = data['Microseconds']
+        car.setZero([x[0],y[0]])
+        for i in range(len(x)):
+            with open(plotFile, 'a') as csv_file:
+                csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                info = {"Northing (m)": y[i]-y[0],"Easting (m)": x[i]-x[0] , "Heading (degrees)":((360 +(heading[i]-heading[0]))%360),
+                "Microseconds":microSeconds[i],"Unix Time":UNIXseconds[i]}
+                csv_writer.writerow(info)
+            time.sleep(0.1)
+            
 
     
