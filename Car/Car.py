@@ -1,6 +1,17 @@
 from operator import add , sub
 import csv
 
+class Detection:
+    def __init__(self, type = None, camDistance = None, camError = None, depthDistance = None, depthError = None, relHeading = None, position = None):
+        self.type = type
+        self.camDistance = camDistance
+        self.camError = camError
+        self.depthDistance = depthDistance
+        self.depthError = depthError
+        self.relHeading = relHeading
+        self.position = position
+
+
 class Cone:
 # Cone type to create a list of cones from
     def __init__(self, distance = None, heading = None, coneType = None):
