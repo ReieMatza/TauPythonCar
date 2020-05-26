@@ -19,6 +19,7 @@ magnetometer_range_2g = 0
 MAXIMUM_PACKET_PERIODS = 50
 packet_id_utm_position = 34
 packet_id_system_state = 20
+packet_id_unix_time = 21
 
 ########## structs ##########################
 class an_packet_t(Structure):
@@ -51,6 +52,10 @@ class packet_periods_packet_t(Structure):
     _fields_ = [('permanent',c_uint8),
                 ('clear_existing_packets',c_uint8),
                 ('packet_periods', packet_period_t*MAXIMUM_PACKET_PERIODS)]
+
+class unix_time_packet_t(Structure):
+    _fields_ = [('unix_time_seconds',c_uint32),
+                ('microseconds',c_uint32)]
 
 # class b(Structure):
 # 			unsigned int orientation_filter_initialised :1; 1
@@ -132,6 +137,7 @@ def ImuLoop(q, plottingFileName,fieldnames):
     an_packet = an_packet_t()
     system_state_packet = system_state_packet_t()
     utm_position_packet = utm_position_packet_t()
+    unix_time_packet = unix_time_packet_t()
 
     if(rs.OpenComport(create_string_buffer(comPort.encode('utf-8')),115200)==0):
         print('opend comport sucssesfuly')
@@ -185,7 +191,6 @@ def ImuLoop(q, plottingFileName,fieldnames):
                         # q.put("Roll = {0}, Pitch = {1}, Heading = {2}\n".format(system_state_packet.orientation[0] * RADIANS_TO_DEGREES, system_state_packet.orientation[1] * RADIANS_TO_DEGREES, system_state_packet.orientation[2] * RADIANS_TO_DEGREES))
                         q.put(CarStatus(heading = system_state_packet.orientation[2] * RADIANS_TO_DEGREES ,uptadeType = 2))
                 elif id == packet_id_utm_position:
-                    
                     res = spatial.decode_utm_position_packet(byref(utm_position_packet),an_packet)
                     if(res == 0):
 
@@ -193,6 +198,12 @@ def ImuLoop(q, plottingFileName,fieldnames):
                         y = utm_position_packet.position[1]
                         z = utm_position_packet.position[2] 
                         q.put(CarStatus(x,y,z,uptadeType = 1))
+                
+                elif id == packet_id_unix_time:
+                    res = spatial.decode_unix_time_packet(byref(unix_time_packet),an_packet)
+                    if(res == 0):
+                        # print( unix_time_packet.unix_time_seconds)
+                        q.put(CarStatus(unixTime = unix_time_packet.unix_time_seconds, microSeconds =  unix_time_packet.microseconds,uptadeType = 4))
 
 
 

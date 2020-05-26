@@ -40,10 +40,10 @@ def RunSLAM(car,carStatueQueue,plotFile,fieldnames, oppMode):
                     if firstPacketLocation:
                         car.setZero(stat.location)
                         firstPacketLocation=False
-                # if stat.type == 2:
-                #     if firstPacketLocation:
-                #         car.setZero(stat.location)
-                #         firstPacketLocation=False
+                if stat.type == 2:
+                    if firstPacketLocation:
+                        car.setZero(stat.location)
+                        firstPacketLocation=False
                 
                 car.updateStatus(stat,plotFile,fieldnames)
 
@@ -61,6 +61,8 @@ def RunSLAM(car,carStatueQueue,plotFile,fieldnames, oppMode):
                 info = {"Northing (m)": y[i]-y[0],"Easting (m)": x[i]-x[0] , "Heading (degrees)":((360 +(heading[i]-heading[0]))%360),
                 "Microseconds":microSeconds[i],"Unix Time":UNIXseconds[i]}
                 csv_writer.writerow(info)
+
+                #to-do add offline updateStatus mode
             time.sleep(0.1)
             
 
