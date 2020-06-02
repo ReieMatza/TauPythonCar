@@ -1,11 +1,9 @@
 import sys
-import csv
 import time
 import os
 import queue
 import threading
 import matplotlib.pyplot as plt
-
 
 dir = os.path.dirname(__file__)
 IMUpath = os.path.join(dir, 'IMU')
@@ -16,6 +14,7 @@ sys.path.append(CARpath)
 from Car import *
 from IMUPython import *
 import SLAM
+from MapApi import *
 
 class OppMode:
     def __init__(self, type = "online", path = ""):
@@ -23,21 +22,16 @@ class OppMode:
         self.path = path
 
 def main():
-    saveDataFile = 'data.csv'
-    fieldnames = ["Unix Time","Microseconds", "Northing (m)", "Easting (m)" ,"Heading (degrees)"]
 
-
-    with open(saveDataFile, 'w') as csv_file:
-        csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        csv_writer.writeheader()
-
-    carStatueQueue = queue.Queue()
-    imuThread = threading.Thread(target = ImuLoop, args =(carStatueQueue,'data.csv',fieldnames,), daemon=True)
+    trackMap = TrackMap()
+    carStatueUpdateQueue = queue.Queue()
+    imuThread = threading.Thread(target = ImuLoop, args =(carStatueUpdateQueue,'data.csv',trackMap,), daemon=True)
     imuThread.start()
     car = Car()
-    oppMode = OppMode(type = 'offline',path = 'C:\\FinalProject\\TauPythonCar\\UTMPosition.csv')
-
-    SLAM.RunSLAM(car,carStatueQueue,saveDataFile,fieldnames, oppMode)
+    # oppMode = OppMode(type = 'offline',path = 'C:\\FinalProject\\TauPythonCar\\UTMPosition.csv')
+    oppMode = OppMode("online")
+    
+    SLAM.RunSLAM(car,carStatueUpdateQueue,trackMap,oppMode)
 
 
     # fig = plt.figure()
