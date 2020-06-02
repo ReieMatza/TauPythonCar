@@ -4,8 +4,9 @@ from matplotlib.animation import FuncAnimation
 import csv
 import threading
 
+
 mapFile = 'data.csv'
-fieldnames = ["Unix Time","Microseconds", "Northing (m)", "Easting (m)" ,"Heading (degrees)"]
+fieldnames = ["Unix Time","Microseconds", "Northing (m)", "Easting (m)" ,"Heading (degrees)","Yellow Cone X","Yellow Cone Y","Blue Cone X","Blue Cone Y"]
 
 print("importing TrackMap")
 class TrackMap:
@@ -14,6 +15,18 @@ class TrackMap:
             csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
             csv_writer.writeheader()
 
+    #gets the cone X,Y location as ints and the color as string blue/yellow
+    def addCone(self,coneX,coneY,color):
+        with open(mapFile, 'a') as csv_file:
+            csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            if color.lower() == 'blue':
+                info = {"Blue Cone X": coneX,"Blue Cone Y": coneY}
+                csv_writer.writerow(info)
+            elif color.lower() == 'yellow':
+                info = {"Yellow Cone X": coneX,"Yellow Cone Y": coneY}
+                csv_writer.writerow(info)
+            
+    #location is an array with size of 2, location[0] is y, location[1] in x
     def addCarLocation(self, location):
         with open(mapFile, 'a') as csv_file:
             csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -32,6 +45,16 @@ def plotAnimate(i , carStatueQueue ,car):
     y = data['Northing (m)']
     plt.cla()
     plt.plot(x, y, label='Location')
+
+    xYellowCones = data['Yellow Cone X']
+    yYellowCones = data['Yellow Cone Y']
+    plt.plot(xYellowCones, yYellowCones,'o',color ='yellow')
+
+    xBlueCones = data['Blue Cone X']
+    yBlueCones = data['Blue Cone Y']
+    plt.plot(xBlueCones, yBlueCones,'o',color ='blue')
+
+
     plt.xlim((-2,2))
     plt.ylim((-2,2))
     plt.legend(loc='upper left')
