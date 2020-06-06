@@ -43,7 +43,7 @@ def detectionsQueueLoop(detectionsQueue,trackMap):
             detection = detectionsQueue.get()
             
             if abs(detection.camDistance - float(detection.depthDistance)) < 0.8 and detection.camDistance < 11 and detection.camDistance > 2 and abs(detection.relHeading) < 32 and abs(detection.relHeading + detection.camOrientation[2]) > 7:
-                estimatedPos = getPosEstimation(detection.camDistance, detection.relHeading + detection.camOrientation[2], detection.camPosition)
+                estimatedPos = DetectionToAbsLocation(detection)
                 #print("coneColor: " + detection.coneColor +" camDistance: " + str(detection.camDistance) + " depthDistance: " + str(detection.depthDistance) + " relHeading: " + str(detection.relHeading)+ " camPosition: " + str(detection.camPosition) + " camOrientation: " + str(detection.camOrientation))
                 with open('detectionsOutput.txt', 'a') as file:
                     file.write(str(detection.coneColor) + "\t" + str(detection.camDistance) + "\t" + str(detection.depthDistance) + "\t" + str(detection.relHeading)+ "\t" + str(detection.camPosition[0]) + "\t" + str(detection.camPosition[1]) + "\t" + str(detection.camPosition[2]) + "\t" + str(detection.camOrientation[0]) + "\t" + str(detection.camOrientation[1]) + "\t" + str(detection.camOrientation[2]) + "\t" + str(detection.frameID) + "\n")
