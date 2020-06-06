@@ -132,7 +132,7 @@ def set_utm_packet_rate():
 
 
 ########### main functions ################
-def ImuLoop(q, plottingFileName,fieldnames):
+def ImuLoop(q, plottingFileName, trackMap):
     an_decoder = an_decoder_t()
     an_packet = an_packet_t()
     system_state_packet = system_state_packet_t()
