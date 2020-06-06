@@ -11,7 +11,7 @@ from ctypes import *
 import numpy as np
 import cv2
 import pyzed.sl as sl
-from sympy import symbols, Eq, solve
+#from sympy import symbols, Eq, solve
 import queue
 from classes import Detection
 
@@ -189,13 +189,24 @@ def detectionsAnalayzer(rawDetections, depthMat):
         depthDistance = math.sqrt(x * x + y * y + z * z)
         depthDistance = "{:.4f}".format(depthDistance)
         camDistance = round((423.94/(secondPoint[1] - firstPoint[1])+0.2098),4)
-        relHeading = round(((firstPoint[0] + secondPoint[0])/2)*0.0859 -55,1)
+        relHeading = round(((firstPoint[0] + secondPoint[0])/2)*0.0583 -55.389,2)
         coneColor = detection[0]
         detected = Detection(coneColor, camDistance, depthDistance, relHeading, firstPoint, secondPoint, None)
         detectionsList.append(detected)
     return detectionsList
         #print("coneColor: " + detected.coneColor +" camDistance: " + str(camDistance) + " depthDistance: " + str(depthDistance) + " relHeading: " + str(relHeading))
 
+def rotate(image, angle, center = None, scale = 1.0):
+    (h, w) = image.shape[:2]
+
+    if center is None:
+        center = (w / 2, h / 2)
+
+    # Perform the rotation
+    M = cv2.getRotationMatrix2D(center, angle, scale)
+    rotated = cv2.warpAffine(image, M, (w, h))
+
+    return rotated
 
 
 def cvDrawBoxes(detectionsList, img):
@@ -204,6 +215,7 @@ def cvDrawBoxes(detectionsList, img):
         pt1 = detection.firstPoint
         pt2 = detection.secondPoint
         coneColor = detection.coneColor 
+        coneColorBGR = (0,255,0)
         if coneColor == 'BLUE':
             coneColorBGR = (255,0,0)
         elif coneColor == 'YELLOW':
@@ -352,8 +364,7 @@ def yolov3(detectionsQueue):
     meta_path = "yoloData/obj.data"
     svo_path = "HD1080.svo"
     zed_id = 0
-
-    init_mode = 1
+    init_mode = 0
 
     input_type = sl.InputType()
     if init_mode == 0:      
@@ -366,6 +377,7 @@ def yolov3(detectionsQueue):
     init.camera_resolution = sl.RESOLUTION.HD1080
     init.camera_fps = 30
     init.coordinate_units = sl.UNIT.METER
+    init.coordinate_system = sl.COORDINATE_SYSTEM.RIGHT_HANDED_Z_UP
 
     cam = sl.Camera()
     if not cam.is_opened():
@@ -375,6 +387,14 @@ def yolov3(detectionsQueue):
         log.error(repr(status))
         exit()
 
+    # Enable positional tracking with default parameters
+    py_transform = sl.Transform()  # First create a Transform object for TrackingParameters object
+    tracking_parameters = sl.PositionalTrackingParameters(init_pos=py_transform)
+    err = cam.enable_positional_tracking(tracking_parameters)
+    if err != sl.ERROR_CODE.SUCCESS:
+        exit(1)
+
+    zed_pose = sl.Pose()
     runtime = sl.RuntimeParameters()
     # Use STANDARD sensing mode
     runtime.sensing_mode = sl.SENSING_MODE.STANDARD
@@ -426,25 +446,37 @@ def yolov3(detectionsQueue):
     color_array = generate_color(meta_path)
 
     log.info("Running...")
-
+    frameID = 0
 
     key = ''
     while key != 113:  # for 'q' key
         start_time = time.time() # start time of the loop
         err = cam.grab(runtime)
-
+        
         if err == sl.ERROR_CODE.SUCCESS:
+            print("********   Frame   *********")
             cam.retrieve_image(mat, sl.VIEW.LEFT)
             image = mat.get_data()
 
-            cam.retrieve_measure(
-                point_cloud_mat, sl.MEASURE.XYZRGBA)
+            cam.retrieve_measure(point_cloud_mat, sl.MEASURE.XYZRGBA)
             depth = point_cloud_mat.get_data()
+            cam.get_position(zed_pose, sl.REFERENCE_FRAME.WORLD)
 
+            py_translation = sl.Translation()
+            tx = round(zed_pose.get_translation(py_translation).get()[0], 3)
+            ty = round(zed_pose.get_translation(py_translation).get()[1], 3)
+            tz = round(zed_pose.get_translation(py_translation).get()[2], 3)
+            camPosition = (tx, ty, tz)
+            #print("Translation: Tx: {0}, Ty: {1}, Tz {2}, Timestamp: {3}".format(tx, ty, tz, zed_pose.timestamp.get_milliseconds()))
+            camOrientation = zed_pose.get_rotation_vector()*180/math.pi
+            image = rotate(image, -camOrientation[1], center = None, scale = 1.0)
             # Do the detection
             rawDetections = detect(netMain, metaMain, image, thresh)
             detectionsList = detectionsAnalayzer(rawDetections, depth)
             for detection in detectionsList:
+                detection.camPosition = camPosition
+                detection.camOrientation = camOrientation
+                detection.frameID = frameID
                 detectionsQueue.put(detection)
             image = cvDrawBoxes(detectionsList, image)
             #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -454,7 +486,11 @@ def yolov3(detectionsQueue):
             log.info("FPS: {}".format(1.0 / (time.time() - start_time)))
         else:
             key = cv2.waitKey(5)
-    cv2.destroyAllWindows()
+        if frameID == 1100:
+            break
+        frameID +=1
+
+    #cv2.destroyAllWindows()
 
     cam.close()
     log.info("\nFINISH")
