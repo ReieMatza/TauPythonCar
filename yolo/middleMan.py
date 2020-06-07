@@ -3,53 +3,113 @@ from classes import Detection
 from sympy import symbols, Eq, solve
 import math
 import MapApi
-import os
-from RAndTMatrix import *
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+
+conesList = []
+initBlueConesListX = []
+initBlueConesListY = []
+initYellowConesListX = []
+initYellowConesListY = []
 
 
-def getPosEstimation(distance, dgrees, camPosition):
-    d = distance
-    tanO = math.tan((90-dgrees)*math.pi/180)
-    xp = camPosition[0]
-    yp = camPosition[1]
-    x, y = symbols('x y')
+def CameraRotationCompnsation(pointX,pointY,theta):
+    thataInRad = -1*math.radians(theta)
+    rotationMatrix = np.zeros(2)
+    rotationMatrix[0] = pointX*math.cos(thataInRad)-pointY*math.sin(thataInRad)
+    rotationMatrix[1] = pointX*math.sin(thataInRad)+pointY*math.cos(thataInRad)
+    return rotationMatrix
 
-    eq1 = Eq((xp -x)*(xp -x) +(yp-y)*(yp-y) - d*d, 0)
-    eq2 = Eq((yp-y) -tanO*(xp -x), 0)
-    sol = solve((eq1,eq2), (x, y))
-    sol1 = sol[0]
-    sol2 = sol[1]
-    print(sol)
-    #print("check    ---------------------> " + str(dgrees))
-    if dgrees > 90 and dgrees < -90:
-        if sol1[1] < yp:
-            sol = sol1
-        else:
-            sol = sol2
-    if dgrees < 90 and dgrees > -90:
-        if sol1[1] > yp:
-            sol = sol1
-        else:
-            sol = sol2
+def InverseTranslation(pointX,pointY,carLocationX,carLocationY):
+    pointX = pointX + carLocationX
+    pointY = pointY + carLocationY
+    return pointX,pointY 
 
-    return sol
+def GetAbsoluteLocation(pointX,pointY,carLocationX,carLocationY,carHeading):
+    absLocation = np.zeros((2,1))
+    absLocation[0] = pointX
+    absLocation[1] = pointY
+    absLocation = CameraRotationCompnsation(pointX,pointY,carHeading)
+    absLocation[0],absLocation[1] =InverseTranslation(absLocation[0],absLocation[1],carLocationX,carLocationY)
+    
+    return absLocation
 
+def DetectionToAbsLocation(detection):
+    coneX= math.sin(math.radians(detection.relHeading))* detection.camDistance
+    coneY= math.cos(math.radians(detection.relHeading))* detection.camDistance
+    absLocation = GetAbsoluteLocation(coneX,coneY,detection.camPosition[0],detection.camPosition[1],detection.camOrientation[2])
+    return (absLocation[0],absLocation[1])
 
 def detectionsQueueLoop(detectionsQueue,trackMap):
-    
-    
+    blueConesK = 2
+    yellowConesK = 2
+    i = 1
     while (True):
+
         if detectionsQueue.empty() == False:
             detection = detectionsQueue.get()
-            
-            if abs(detection.camDistance - float(detection.depthDistance)) < 0.8 and detection.camDistance < 11 and detection.camDistance > 2 and abs(detection.relHeading) < 32 and abs(detection.relHeading + detection.camOrientation[2]) > 7:
+            if abs(detection.camDistance - float(detection.depthDistance)) < 0.8 and detection.camDistance < 11 and detection.camDistance > 2 and abs(detection.relHeading) < 32 and abs(detection.relHeading) > 7:
                 estimatedPos = DetectionToAbsLocation(detection)
-                #print("coneColor: " + detection.coneColor +" camDistance: " + str(detection.camDistance) + " depthDistance: " + str(detection.depthDistance) + " relHeading: " + str(detection.relHeading)+ " camPosition: " + str(detection.camPosition) + " camOrientation: " + str(detection.camOrientation))
-                with open('detectionsOutput.txt', 'a') as file:
-                    file.write(str(detection.coneColor) + "\t" + str(detection.camDistance) + "\t" + str(detection.depthDistance) + "\t" + str(detection.relHeading)+ "\t" + str(detection.camPosition[0]) + "\t" + str(detection.camPosition[1]) + "\t" + str(detection.camPosition[2]) + "\t" + str(detection.camOrientation[0]) + "\t" + str(detection.camOrientation[1]) + "\t" + str(detection.camOrientation[2]) + "\t" + str(detection.frameID) + "\n")
-                #detection.coneColor    #accepts BLUE/YELLOW as values
-                # y_cord = estimatedPos[1]
-                # x_cord = estimatedPos[0]
-                # Matza addCone here
-                #print('Before: ' + str(detection.coneColor) + ' ' + str(estimatedPos[0]) +' ' + str(estimatedPos[1]))
-                trackMap.addCone(estimatedPos[0],estimatedPos[1],detection.coneColor)
+                if detection.coneColor == "BLUE":
+                    initBlueConesListX.append(estimatedPos[0])
+                    initBlueConesListY.append(estimatedPos[1])
+                elif detection.coneColor == "YELLOW":
+                    initYellowConesListX.append(estimatedPos[0])
+                    initYellowConesListY.append(estimatedPos[1])
+                #conesList.append(estimatedPos[0], estimatedPos[1], detection.color)
+                
+                if i % 70 == 0:
+                    blueConesK, yellowConesK = kmeansEstimation(blueConesK, yellowConesK)
+                    trackMap.addCones(conesList)
+                    i = 1
+                i += 1
+
+def kmeansEstimation(blueConesK, yellowConesK):
+    sil = []
+
+    if len(initBlueConesListX) < 10 or len(initYellowConesListX) < 10:
+        return blueConesK, yellowConesK
+    
+    df = pd.DataFrame({'x': initBlueConesListX, 'y': initBlueConesListY}) 
+    for i in range(blueConesK,blueConesK+3):
+        kmeans = KMeans(n_clusters=i)
+        kmeans.fit(df)
+        labels = kmeans.predict(df)
+        centroids = kmeans.cluster_centers_
+        sil.append(silhouette_score(df, labels, metric = 'euclidean'))
+    
+    blueConesK = range(blueConesK,blueConesK + 3)[sil.index(max(sil))]
+
+    kmeans = KMeans(n_clusters=blueConesK)
+    kmeans.fit(df)
+    labels = kmeans.predict(df)
+    centroids = kmeans.cluster_centers_
+
+    for centroid in centroids:
+        conesList.append((centroid[0],centroid[1], "BLUE"))
+
+    sil.clear()
+    df = pd.DataFrame({'x': initYellowConesListX, 'y': initYellowConesListY}) 
+    
+    for i in range(yellowConesK,yellowConesK+3):
+        kmeans = KMeans(n_clusters=i)
+        kmeans.fit(df)
+        labels = kmeans.predict(df)
+        centroids = kmeans.cluster_centers_
+        sil.append(silhouette_score(df, labels, metric = 'euclidean'))
+    
+    yellowConesK = range(yellowConesK,yellowConesK + 3)[sil.index(max(sil))]
+
+
+
+    kmeans = KMeans(n_clusters=yellowConesK)
+    kmeans.fit(df)
+    labels = kmeans.predict(df)
+    centroids = kmeans.cluster_centers_
+
+    for centroid in centroids:
+        conesList.append((centroid[0],centroid[1], "YELLOW"))
+    
+    return blueConesK, yellowConesK

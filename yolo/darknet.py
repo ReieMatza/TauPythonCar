@@ -446,7 +446,7 @@ def yolov3(detectionsQueue):
     color_array = generate_color(meta_path)
 
     log.info("Running...")
-    frameID = 0
+    j = 0
 
     key = ''
     while key != 113:  # for 'q' key
@@ -476,7 +476,6 @@ def yolov3(detectionsQueue):
             for detection in detectionsList:
                 detection.camPosition = camPosition
                 detection.camOrientation = camOrientation
-                detection.frameID = frameID
                 detectionsQueue.put(detection)
             image = cvDrawBoxes(detectionsList, image)
             #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -486,9 +485,9 @@ def yolov3(detectionsQueue):
             log.info("FPS: {}".format(1.0 / (time.time() - start_time)))
         else:
             key = cv2.waitKey(5)
-        if frameID == 1100:
+        if j == 1100:
             break
-        frameID +=1
+        j +=1
 
     #cv2.destroyAllWindows()
 
