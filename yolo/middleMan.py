@@ -16,7 +16,7 @@ initYellowConesListY = []
 
 
 def CameraRotationCompnsation(pointX,pointY,theta):
-    thataInRad = -1*math.radians(theta)
+    thataInRad = 1*math.radians(theta)
     rotationMatrix = np.zeros(2)
     rotationMatrix[0] = pointX*math.cos(thataInRad)-pointY*math.sin(thataInRad)
     rotationMatrix[1] = pointX*math.sin(thataInRad)+pointY*math.cos(thataInRad)
@@ -50,7 +50,8 @@ def detectionsQueueLoop(detectionsQueue,trackMap):
 
         if detectionsQueue.empty() == False:
             detection = detectionsQueue.get()
-            if abs(detection.camDistance - float(detection.depthDistance)) < 0.8 and detection.camDistance < 11 and detection.camDistance > 2 and abs(detection.relHeading) < 32 and abs(detection.relHeading) > 7:
+            if abs(detection.camDistance - float(detection.depthDistance)) < 0.7 and detection.camDistance < 10 and detection.camDistance > 1.5 and abs(detection.relHeading) < 43 and abs(detection.relHeading) > 0.05:
+                
                 estimatedPos = DetectionToAbsLocation(detection)
                 if detection.coneColor == "BLUE":
                     initBlueConesListX.append(estimatedPos[0])
@@ -59,8 +60,9 @@ def detectionsQueueLoop(detectionsQueue,trackMap):
                     initYellowConesListX.append(estimatedPos[0])
                     initYellowConesListY.append(estimatedPos[1])
                 #conesList.append(estimatedPos[0], estimatedPos[1], detection.color)
-                
-                if i % 70 == 0:
+                with open('cordsOutput.txt', 'a') as file:
+                     file.write(detection.coneColor + "\t" + str(estimatedPos[0]) + "\t" + str(estimatedPos[1]) + "\n")
+                if i % 20 == 0:
                     blueConesK, yellowConesK = kmeansEstimation(blueConesK, yellowConesK)
                     trackMap.addCones(conesList)
                     i = 1
@@ -69,47 +71,46 @@ def detectionsQueueLoop(detectionsQueue,trackMap):
 def kmeansEstimation(blueConesK, yellowConesK):
     sil = []
 
-    if len(initBlueConesListX) < 10 or len(initYellowConesListX) < 10:
-        return blueConesK, yellowConesK
     
-    df = pd.DataFrame({'x': initBlueConesListX, 'y': initBlueConesListY}) 
-    for i in range(blueConesK,blueConesK+3):
-        kmeans = KMeans(n_clusters=i)
+    if len(initBlueConesListX) > 10:
+        df = pd.DataFrame({'x': initBlueConesListX, 'y': initBlueConesListY}) 
+        for i in range(blueConesK,blueConesK+3):
+            kmeans = KMeans(n_clusters=i)
+            kmeans.fit(df)
+            labels = kmeans.predict(df)
+            centroids = kmeans.cluster_centers_
+            sil.append(silhouette_score(df, labels, metric = 'euclidean'))
+        
+        blueConesK = range(blueConesK,blueConesK + 3)[sil.index(max(sil))]
+
+        kmeans = KMeans(n_clusters=blueConesK)
         kmeans.fit(df)
         labels = kmeans.predict(df)
         centroids = kmeans.cluster_centers_
-        sil.append(silhouette_score(df, labels, metric = 'euclidean'))
-    
-    blueConesK = range(blueConesK,blueConesK + 3)[sil.index(max(sil))]
 
-    kmeans = KMeans(n_clusters=blueConesK)
-    kmeans.fit(df)
-    labels = kmeans.predict(df)
-    centroids = kmeans.cluster_centers_
+        for centroid in centroids:
+            conesList.append((centroid[0],centroid[1], "BLUE"))
 
-    for centroid in centroids:
-        conesList.append((centroid[0],centroid[1], "BLUE"))
+        sil.clear()
+    if len(initYellowConesListX) > 10:    
+        df = pd.DataFrame({'x': initYellowConesListX, 'y': initYellowConesListY}) 
+        
+        for i in range(yellowConesK,yellowConesK+3):
+            kmeans = KMeans(n_clusters=i)
+            kmeans.fit(df)
+            labels = kmeans.predict(df)
+            centroids = kmeans.cluster_centers_
+            sil.append(silhouette_score(df, labels, metric = 'euclidean'))
+        
+        yellowConesK = range(yellowConesK,yellowConesK + 3)[sil.index(max(sil))]
 
-    sil.clear()
-    df = pd.DataFrame({'x': initYellowConesListX, 'y': initYellowConesListY}) 
-    
-    for i in range(yellowConesK,yellowConesK+3):
-        kmeans = KMeans(n_clusters=i)
+
+
+        kmeans = KMeans(n_clusters=yellowConesK)
         kmeans.fit(df)
         labels = kmeans.predict(df)
         centroids = kmeans.cluster_centers_
-        sil.append(silhouette_score(df, labels, metric = 'euclidean'))
-    
-    yellowConesK = range(yellowConesK,yellowConesK + 3)[sil.index(max(sil))]
 
-
-
-    kmeans = KMeans(n_clusters=yellowConesK)
-    kmeans.fit(df)
-    labels = kmeans.predict(df)
-    centroids = kmeans.cluster_centers_
-
-    for centroid in centroids:
-        conesList.append((centroid[0],centroid[1], "YELLOW"))
-    
+        for centroid in centroids:
+            conesList.append((centroid[0],centroid[1], "YELLOW"))
     return blueConesK, yellowConesK

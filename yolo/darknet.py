@@ -14,7 +14,7 @@ import pyzed.sl as sl
 #from sympy import symbols, Eq, solve
 import queue
 from classes import Detection
-
+from classes import outputData
 
 # Get the top-level logger object
 log = logging.getLogger(__name__)
@@ -196,17 +196,7 @@ def detectionsAnalayzer(rawDetections, depthMat):
     return detectionsList
         #print("coneColor: " + detected.coneColor +" camDistance: " + str(camDistance) + " depthDistance: " + str(depthDistance) + " relHeading: " + str(relHeading))
 
-def rotate(image, angle, center = None, scale = 1.0):
-    (h, w) = image.shape[:2]
 
-    if center is None:
-        center = (w / 2, h / 2)
-
-    # Perform the rotation
-    M = cv2.getRotationMatrix2D(center, angle, scale)
-    rotated = cv2.warpAffine(image, M, (w, h))
-
-    return rotated
 
 
 def cvDrawBoxes(detectionsList, img):
@@ -355,7 +345,7 @@ def generate_color(meta_path):
     return color_array
 
 
-def yolov3(detectionsQueue):
+def yolov3(zedFramesQueue, detectionsQueue,imageOutputQueue):
 
     thresh = 0.25
     darknet_path=""
@@ -363,46 +353,7 @@ def yolov3(detectionsQueue):
     weight_path = "yoloData/yolov3-tiny-panda_final.weights"
     meta_path = "yoloData/obj.data"
     svo_path = "HD1080.svo"
-    zed_id = 0
-    init_mode = 0
 
-    input_type = sl.InputType()
-    if init_mode == 0:      
-        input_type.set_from_svo_file(svo_path)
-    else:
-        input_type.set_from_camera_id(zed_id)
-
-
-    init = sl.InitParameters(input_t=input_type)
-    init.camera_resolution = sl.RESOLUTION.HD1080
-    init.camera_fps = 30
-    init.coordinate_units = sl.UNIT.METER
-    init.coordinate_system = sl.COORDINATE_SYSTEM.RIGHT_HANDED_Z_UP
-
-    cam = sl.Camera()
-    if not cam.is_opened():
-        log.info("Opening ZED Camera...")
-    status = cam.open(init)
-    if status != sl.ERROR_CODE.SUCCESS:
-        log.error(repr(status))
-        exit()
-
-    # Enable positional tracking with default parameters
-    py_transform = sl.Transform()  # First create a Transform object for TrackingParameters object
-    tracking_parameters = sl.PositionalTrackingParameters(init_pos=py_transform)
-    err = cam.enable_positional_tracking(tracking_parameters)
-    if err != sl.ERROR_CODE.SUCCESS:
-        exit(1)
-
-    zed_pose = sl.Pose()
-    runtime = sl.RuntimeParameters()
-    # Use STANDARD sensing mode
-    runtime.sensing_mode = sl.SENSING_MODE.STANDARD
-    mat = sl.Mat()
-    point_cloud_mat = sl.Mat()
-
-    # Import the global variables. This lets us instance Darknet once,
-    # then just call performDetect() again without instancing again
 
     global metaMain, netMain, altNames  # pylint: disable=W0603
     assert 0 < thresh < 1, "Threshold should be a float between zero and one (non-inclusive)"
@@ -446,51 +397,40 @@ def yolov3(detectionsQueue):
     color_array = generate_color(meta_path)
 
     log.info("Running...")
-    j = 0
 
-    key = ''
-    while key != 113:  # for 'q' key
+    while True:  # for 'q' key
         start_time = time.time() # start time of the loop
-        err = cam.grab(runtime)
         
-        if err == sl.ERROR_CODE.SUCCESS:
-            print("********   Frame   *********")
-            cam.retrieve_image(mat, sl.VIEW.LEFT)
-            image = mat.get_data()
 
-            cam.retrieve_measure(point_cloud_mat, sl.MEASURE.XYZRGBA)
-            depth = point_cloud_mat.get_data()
-            cam.get_position(zed_pose, sl.REFERENCE_FRAME.WORLD)
-
-            py_translation = sl.Translation()
-            tx = round(zed_pose.get_translation(py_translation).get()[0], 3)
-            ty = round(zed_pose.get_translation(py_translation).get()[1], 3)
-            tz = round(zed_pose.get_translation(py_translation).get()[2], 3)
-            camPosition = (tx, ty, tz)
-            #print("Translation: Tx: {0}, Ty: {1}, Tz {2}, Timestamp: {3}".format(tx, ty, tz, zed_pose.timestamp.get_milliseconds()))
-            camOrientation = zed_pose.get_rotation_vector()*180/math.pi
-            image = rotate(image, -camOrientation[1], center = None, scale = 1.0)
+        if zedFramesQueue.empty() == False:
+            frame = zedFramesQueue.get()
+            image = frame.image
+            camPosition = frame.camPosition
+            camOrientation = frame.camOrientation
+            depth = frame.depthMat
             # Do the detection
             rawDetections = detect(netMain, metaMain, image, thresh)
+
+            time2 = time.time()
             detectionsList = detectionsAnalayzer(rawDetections, depth)
+            
             for detection in detectionsList:
                 detection.camPosition = camPosition
                 detection.camOrientation = camOrientation
                 detectionsQueue.put(detection)
+            
             image = cvDrawBoxes(detectionsList, image)
+
+            print(time.time()- time2)
+            output = outputData(image, camPosition, camOrientation)
+            imageOutputQueue.put(output)
             #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = cv2.resize(image,(1280,720),interpolation=cv2.INTER_LINEAR)
-            cv2.imshow("ZED", image)
-            key = cv2.waitKey(5)
+            ##image = cv2.resize(image,(1280,720),interpolation=cv2.INTER_LINEAR)
+            #cv2.imshow("ZED", image)
+            #print(camOrientation)
+            #key = cv2.waitKey(5)
             log.info("FPS: {}".format(1.0 / (time.time() - start_time)))
-        else:
-            key = cv2.waitKey(5)
-        if j == 1100:
-            break
-        j +=1
 
-    #cv2.destroyAllWindows()
 
-    cam.close()
-    log.info("\nFINISH")
+
 
