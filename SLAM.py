@@ -42,9 +42,9 @@ def RunSLAM(car,carStatueQueue,trackMap, oppMode):
                         car.setZero(stat.location)
                         firstPacketLocation=False
                 if stat.type == 2:
-                    if firstPacketLocation:
-                        car.setZero(stat.location)
-                        firstPacketLocation=False
+                    if firstPacketHeading:
+                        car.setZeroHeading(stat.heading)
+                        firstPacketHeading=False
                 car.updateStatus(stat,trackMap)
 
     # elif oppMode.type == "offline":

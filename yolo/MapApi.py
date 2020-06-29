@@ -21,9 +21,10 @@ conesList = []
 
 print("Starting TrackMap...")
 class TrackMap:
-    def __init__(self):
+    def __init__(self,imageOutputQueue):
         global conesList
         conesList = []
+        self.imageOutputQueue = imageOutputQueue
 
     #gets the cone X,Y location as ints and the color as string blue/yellow
     def addCones(self,kmeansConesList):
@@ -33,25 +34,27 @@ class TrackMap:
         kmeansConesList.clear()
 
     def openMap(self):
-        plotThread = threading.Thread(target = plotter, daemon=True)
+        plotThread = threading.Thread(target = plotter, daemon=True,args=(self.imageOutputQueue))
         plotThread.start()
 
 
-def plotAnimate(i):
+def plotAnimate(i,imageOutputQueue):
     global conesList
     plt.clf()
+    img = imageOutputQueue.get()
+    fig , axs =  plt.subplots(1,2)
+    fig.suptitle('Yolo and cone detections')
     for cone in conesList:
         print(str(cone[0]) + " " + str(cone[1]) + " -" + cone[2].lower()+ "-")
-        plt.plot(cone[0], cone[1],'o',color =cone[2].lower())
-
-
+        axs[0].plot(cone[0], cone[1],'o',color =cone[2].lower())
+    axs[1].imshow(img)    
     #plt.xlim((-10,30))
     #plt.ylim((0,40))
     #plt.legend(loc='upper left')
     plt.tight_layout()
 
-def plotter():
+def plotter(imageOutputQueue):
     plt.style.use('fivethirtyeight')
-    ani = FuncAnimation(plt.gcf(), plotAnimate, interval=10)
+    ani = FuncAnimation(plt.gcf(), plotAnimate, interval=4,args=(self.imageOutputQueue))
     plt.tight_layout()
     plt.show()

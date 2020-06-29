@@ -11,7 +11,7 @@ detectionsQueue = queue.Queue() # Global detections queue
 imageOutputQueue = queue.Queue()
 
 
-trackMap = TrackMap()
+trackMap = TrackMap(imageOutputQueue)
 
 zedThread = threading.Thread(target=zed.zedGrabber, args=(zedFramesQueue,))
 zedThread.start()
