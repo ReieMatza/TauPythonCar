@@ -37,8 +37,8 @@ def GetAbsoluteLocation(pointX,pointY,carLocationX,carLocationY,carHeading):
     return absLocation
 
 def DetectionToAbsLocation(detection):
-    coneX= math.sin(math.radians(detection.relHeading))* detection.camDistance
-    coneY= math.cos(math.radians(detection.relHeading))* detection.camDistance
+    coneX= math.sin(math.radians(detection.relHeading)) * float(detection.depthDistance)
+    coneY= math.cos(math.radians(detection.relHeading)) * float(detection.depthDistance)
     absLocation = GetAbsoluteLocation(coneX,coneY,detection.camPosition[0],detection.camPosition[1],detection.camOrientation[2])
     return (absLocation[0],absLocation[1])
 
@@ -50,7 +50,8 @@ def detectionsQueueLoop(detectionsQueue,trackMap):
 
         if detectionsQueue.empty() == False:
             detection = detectionsQueue.get()
-            if abs(detection.camDistance - float(detection.depthDistance)) < 0.7 and detection.camDistance < 10 and detection.camDistance > 1.5 and abs(detection.relHeading) < 43 and abs(detection.relHeading) > 0.05:
+            if abs(detection.camDistance - float(detection.depthDistance)) < 3 and detection.camDistance < 18 and detection.camDistance > 0.5 and abs(detection.relHeading) < 46.25 and abs(detection.relHeading) > 0.05:
+            # if  1:
                 
                 estimatedPos = DetectionToAbsLocation(detection)
                 if detection.coneColor == "BLUE":
@@ -64,7 +65,7 @@ def detectionsQueueLoop(detectionsQueue,trackMap):
                      file.write(detection.coneColor + "\t" + str(estimatedPos[0]) + "\t" + str(estimatedPos[1]) + "\n")
                 if i % 20 == 0:
                     blueConesK, yellowConesK = kmeansEstimation(blueConesK, yellowConesK)
-                    trackMap.addCones(conesList)
+                    trackMap.updateConeList(conesList)
                     i = 1
                 i += 1
 
@@ -74,16 +75,22 @@ def kmeansEstimation(blueConesK, yellowConesK):
     
     if len(initBlueConesListX) > 10:
         df = pd.DataFrame({'x': initBlueConesListX, 'y': initBlueConesListY}) 
-        for i in range(blueConesK,blueConesK+3):
-            kmeans = KMeans(n_clusters=i)
+
+        blueConesK -= 3
+        if blueConesK < 2:
+            blueConesK = 2
+
+        for i in range(blueConesK,blueConesK+6):
+            kmeans = KMeans(n_clusters=i , max_iter = 600)
             kmeans.fit(df)
             labels = kmeans.predict(df)
             centroids = kmeans.cluster_centers_
             sil.append(silhouette_score(df, labels, metric = 'euclidean'))
         
-        blueConesK = range(blueConesK,blueConesK + 3)[sil.index(max(sil))]
 
-        kmeans = KMeans(n_clusters=blueConesK)
+        blueConesK = range(blueConesK,blueConesK + 6)[sil.index(max(sil))]
+
+        kmeans = KMeans(n_clusters=blueConesK ,max_iter = 600)
         kmeans.fit(df)
         labels = kmeans.predict(df)
         centroids = kmeans.cluster_centers_
@@ -94,19 +101,23 @@ def kmeansEstimation(blueConesK, yellowConesK):
         sil.clear()
     if len(initYellowConesListX) > 10:    
         df = pd.DataFrame({'x': initYellowConesListX, 'y': initYellowConesListY}) 
-        
-        for i in range(yellowConesK,yellowConesK+3):
-            kmeans = KMeans(n_clusters=i)
+    
+        yellowConesK -= 3
+        if yellowConesK < 2:
+            yellowConesK = 2
+
+        for i in range(yellowConesK,yellowConesK+6):
+            kmeans = KMeans(n_clusters=i , max_iter = 600)
             kmeans.fit(df)
             labels = kmeans.predict(df)
             centroids = kmeans.cluster_centers_
             sil.append(silhouette_score(df, labels, metric = 'euclidean'))
         
-        yellowConesK = range(yellowConesK,yellowConesK + 3)[sil.index(max(sil))]
+        yellowConesK = range(yellowConesK,yellowConesK + 6)[sil.index(max(sil))]
 
 
 
-        kmeans = KMeans(n_clusters=yellowConesK)
+        kmeans = KMeans(n_clusters=yellowConesK , max_iter = 600)
         kmeans.fit(df)
         labels = kmeans.predict(df)
         centroids = kmeans.cluster_centers_

@@ -6,9 +6,9 @@ import zed
 from MapApi import *
 
 
-zedFramesQueue = queue.Queue()
-detectionsQueue = queue.Queue() # Global detections queue
-imageOutputQueue = queue.Queue()
+zedFramesQueue = queue.Queue(maxsize=1)
+detectionsQueue = queue.Queue(maxsize=1) # Global detections queue
+imageOutputQueue = queue.Queue(maxsize=1)
 
 
 trackMap = TrackMap(imageOutputQueue)

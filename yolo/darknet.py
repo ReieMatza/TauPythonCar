@@ -422,7 +422,7 @@ def yolov3(zedFramesQueue, detectionsQueue,imageOutputQueue):
             image = cvDrawBoxes(detectionsList, image)
 
             print(time.time()- time2)
-            output = outputData(image, camPosition, camOrientation)
+            output = outputData(image,camOrientation, camPosition )
             imageOutputQueue.put(output)
             #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             ##image = cv2.resize(image,(1280,720),interpolation=cv2.INTER_LINEAR)

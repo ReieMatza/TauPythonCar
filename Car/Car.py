@@ -55,6 +55,7 @@ class Car:
             self.location = list(map(sub,carStatus.location, self.zeroLocaion))
             trackMap.addCarLocation(self.location)
 
+
         elif carStatus.type == 2:
             self.heading = ((carStatus.heading-self.zeroHeading)+360)%360
         elif carStatus.type == 3:
